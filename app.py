@@ -20,28 +20,43 @@ import os
 import mysql.connector
 import math
 from urllib.parse import urlparse
+import tempfile
 
 
 # ------------------- FLASK APP SETUP -------------------
 app = Flask(__name__)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev_fallback_key')
 
-# Flask + SQLAlchemy (pymysql) config
-raw_db_url = os.environ.get('DATABASE_URL')
+# Flask secret key
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_fallback_key")
+
+# ------------------- DATABASE SETUP -------------------
+raw_db_url = os.environ.get("DATABASE_URL")
+ssl_args = {}
 
 if raw_db_url:
-    # Parse DATABASE_URL if set (from Render or environment)
+    # Parse DATABASE_URL (from Render or env)
     uri = urlparse(raw_db_url)
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f"mysql+pymysql://{uri.username}:{uri.password}@{uri.hostname}:{uri.port or 3306}/{uri.path.lstrip('/')}"
+        f"mysql+pymysql://{uri.username}:{uri.password}"
+        f"@{uri.hostname}:{uri.port or 3306}/{uri.path.lstrip('/')}"
     )
+
+    # SSL with Aiven CA PEM (from environment variable)
+    AIVEN_CA_PEM = os.environ.get("AIVEN_CA_PEM")
+    if AIVEN_CA_PEM:
+        # write PEM to temporary file
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(AIVEN_CA_PEM.encode())
+            ca_path = f.name
+        ssl_args = {"ssl": {"ca": ca_path}}
+    
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        "connect_args": {
-            "ssl": {"ca": os.path.join(os.path.dirname(__file__), "ca.pem")}
-        },
+        "connect_args": ssl_args,
         "pool_recycle": 280,
         "pool_pre_ping": True
     }
+
 else:
     # Local fallback for development
     app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+pymysql://root:root@localhost:3306/anicare_db"
@@ -51,6 +66,8 @@ else:
     }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize SQLAlchemy
 db.init_app(app)
 # ✅ TEMPORARY: Create tables on Render once
 with app.app_context():
