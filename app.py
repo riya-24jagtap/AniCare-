@@ -26,7 +26,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 
 db = SQLAlchemy()
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 
 # Secret key from environment variable
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_fallback_key")
