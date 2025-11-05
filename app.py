@@ -33,26 +33,26 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_fallback_key")
 
 # ------------------- DATABASE SETUP -------------------
 raw_db_url = os.environ.get("DATABASE_URL")
-ssl_args = {}
+uri = urlparse(raw_db_url)
 
-if raw_db_url:
-    uri = urlparse(raw_db_url)
-    app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f"mysql+pymysql://{uri.username}:{uri.password}"
-        f"@{uri.hostname}:{uri.port or 3306}/{uri.path.lstrip('/')}"
-    )
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f"mysql+pymysql://{uri.username}:{uri.password}"
+    f"@{uri.hostname}:{uri.port or 3306}/{uri.path.lstrip('/')}"
+)
 
-    AIVEN_CA_PEM = os.environ.get("AIVEN_CA_PEM")
-    if AIVEN_CA_PEM:
-        ssl_context = ssl.create_default_context(cadata=AIVEN_CA_PEM)
-        ssl_args = {"ssl": ssl_context}
-    else:
-        ssl_args = {}
+AIVEN_CA_PEM = os.environ.get("AIVEN_CA_PEM")
+
+if AIVEN_CA_PEM:
+    cert_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pem")
+    cert_file.write(AIVEN_CA_PEM.encode("utf-8"))
+    cert_file.flush()
 
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        "connect_args": ssl_args,
-        "pool_recycle": 280,
-        "pool_pre_ping": True
+        "connect_args": {
+            "ssl": {
+                "ca": cert_file.name
+            }
+        }
     }
 else:
     # Local fallback for development
