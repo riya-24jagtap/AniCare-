@@ -1,0 +1,11 @@
+# Ignore SSL certificates
+*.pem
+
+# Ignore batch files
+*.bat
+
+# Ignore test scripts
+test_aiven.py
+
+# Ignore SQL backups
+*.sql
